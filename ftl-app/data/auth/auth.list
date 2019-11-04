@@ -1,0 +1,11 @@
+admin: admin123, ftl-admin,ftl
+rs: rs123, ftl-primary,ftl-satellite,ftl-backup,ftl-admin,ftl,auth
+PUB: PUB123, ftl
+SUB1: SUB1123, ftl
+SUB2: SUB2123, ftl
+S1: S1123, ftl
+S2: S2123, ftl
+S3: S3123, ftl
+A1: A1123, ftl
+A2: A2123, ftl
+A3: A3123, ftl

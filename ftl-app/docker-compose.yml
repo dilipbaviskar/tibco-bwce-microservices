@@ -1,0 +1,205 @@
+version: '3'
+
+services:
+   ftl-realmserver:
+           env_file : .env
+           # build:
+           #    context: .              
+           image: ftl-tibrealmserver:5.4.2
+           
+           container_name: ftl_realmserver_542
+           hostname: ${FTL_SERVER_HOST}
+
+           command: 
+             - --config 
+             - /data/config/ftlrealmserver.json  
+             - -u 
+             - admin 
+             - -pw 
+             - admin 
+             - --auth.url 
+             - file:///data/auth/auth.list 
+             - --data 
+             - /data/dbstore/
+           environment :
+            - DOCKER_HOST_IP=${DOCKER_HOST_IP}
+            - FTL_SERVER_HOSTNAME=${FTL_SERVER_HOST}
+           ports:
+              - "13131:13131"
+              - "13134:13134"
+              - "13136:13136"
+           networks: 
+            - localsubnet
+           volumes:
+              - ./data:/data           
+
+   ftl-agent:
+           env_file : .env
+           # build: 
+           #    context: .
+           image: ftl-tibagent:5.4.2
+           container_name: ftl_agent_542
+           hostname: ftl-tibagent     
+           entrypoint : "/opt/tibco/ftl/5.4/bin/tibagent"      
+           ports:
+              - "13139:13139"
+              - "13140:13140"
+           restart: on-failure
+           volumes:
+              - /var/run/docker.sock:/var/run/docker.sock
+              - ./data/auth/A1/pass:/root/pass
+           depends_on:
+             - ftl-realmserver
+           links:
+             - "ftl-realmserver"
+           networks: 
+             - localsubnet
+           command:              
+              - -pf
+              - /root/pass
+              - -rs 
+              - ${FTL_SERVER_HOST}:${FTL_SERVER_PORT_HTTP} 
+              - -s
+              - ${FTL_SERVER_HOST}:${FTL_SERVER_PORT_HTTP}  
+
+   ftl-tibstore-s1:
+           env_file : .env
+           # build:
+           #    context: .           
+           image: ftl-tibstore:5.4.2
+           container_name: ftl_tibstore_s1
+           hostname: ftl-tibstore-s1
+           restart: on-failure
+           entrypoint: "/opt/tibco/ftl/5.4/bin/tibstore"
+           volumes:
+              - ./data:/data  
+           depends_on:
+              - ftl-agent
+           command:
+              - -rs
+              - http://${FTL_SERVER_HOST}:${FTL_SERVER_PORT_HTTP} 
+              - -n
+              - S1
+              - -pw
+              - /data/auth/S1/pass
+           links:
+             - "ftl-realmserver"
+           networks: 
+             - localsubnet
+
+   ftl-tibstore-s2:
+           env_file : .env
+           # build:
+           #    context: .     
+           image: ftl-tibstore:5.4.2
+           container_name: ftl_tibstore_s2
+           hostname: ftl-tibstore-s2
+           restart: on-failure
+           entrypoint: "/opt/tibco/ftl/5.4/bin/tibstore"
+           volumes:
+              - ./data:/data  
+           depends_on:
+              - ftl-agent
+           command:
+              - -rs
+              - http://${FTL_SERVER_HOST}:${FTL_SERVER_PORT_HTTP} 
+              - -n
+              - S2
+              - -pw
+              - /data/auth/S2/pass
+           links:
+             - "ftl-realmserver"
+           networks: 
+             - localsubnet
+
+
+   ftl-tibstore-s3:
+           env_file : .env
+           # build:
+           #    context: .
+           image: ftl-tibstore:5.4.2
+           container_name: ftl_tibstore_s3
+           hostname: ftl-tibstore-s3
+           restart: on-failure
+           entrypoint: "/opt/tibco/ftl/5.4/bin/tibstore"
+           volumes:
+              - ./data:/data  
+           depends_on:
+              - ftl-agent
+           command:
+              - -rs
+              - http://${FTL_SERVER_HOST}:${FTL_SERVER_PORT_HTTP} 
+              - -n
+              - S3
+              - -pw
+              - /data/auth/S3/pass
+           links:
+             - "ftl-realmserver"
+           networks: 
+             - localsubnet   
+
+   bwceftlbuysub:
+           
+           env_file : .env
+
+           build:
+              context: .
+              dockerfile: Dockerfile-BuySubscriberApp
+           
+           image: app/bw/bwceftlbuysubapp
+            
+           container_name: bwceftlbuysubapp
+           
+           restart: on-failure
+           
+           depends_on:
+               - ftl-tibstore-s3
+           networks: 
+             - localsubnet               
+
+   bwceftlsellsub:
+           env_file : .env
+           
+           build:
+              context: .
+              dockerfile: Dockerfile-SellSubscriberApp
+           
+           image: app/bw/bwceftlsellsubapp
+
+           container_name: bwceftlsellsubapp
+           
+           restart: on-failure
+           
+           depends_on:
+               - ftl-tibstore-s3
+           networks: 
+             - localsubnet               
+
+   bwceftlpub:
+           env_file : .env
+           
+           build:
+              context: .
+              dockerfile: Dockerfile-PublisherApp
+           
+           image: app/bw/bwceftlpubapp
+           
+           container_name: bwceftlpubapp
+           
+           restart: on-failure
+           
+           depends_on:
+                   - bwceftlbuysub
+                   - bwceftlsellsub
+           
+           networks: 
+             - localsubnet                   
+
+networks: 
+   localsubnet:
+      external: true
+
+volumes:
+  tibco-ems-volume :
+      external: true
+  data : { }
